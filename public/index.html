@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asistente de emails con IA</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #5d6576; --border: #dde1e8; --sel: #eef2ff;
+      --accent: #3b5bdb; --accent-text: #ffffff;
+      --venta: #1e6b34; --venta-bg: #e6f4ea; --reclamo: #a12626; --reclamo-bg: #fde8e8;
+      --soporte: #1f5aa6; --soporte-bg: #e5effc; --neutro: #4b5363; --neutro-bg: #eceef2;
+      --warn: #8a5300; --warn-bg: #fff4e0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14171d; --card: #1d2129; --text: #e7e9ee; --muted: #9aa2b1; --border: #2e3440; --sel: #232a3d;
+        --accent: #7b93f5; --accent-text: #10131a;
+        --venta: #8fd6a4; --venta-bg: #16301f; --reclamo: #f19a9a; --reclamo-bg: #3a1919;
+        --soporte: #9cc1f5; --soporte-bg: #172741; --neutro: #b9c0cc; --neutro-bg: #2a303b;
+        --warn: #f2c372; --warn-bg: #33270f;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+    h1 { font-size: 1.5rem; margin: 0; }
+    .sub { color: var(--muted); margin: 4px 0 20px; }
+    .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+    .lista { list-style: none; margin: 0; padding: 0; }
+    .lista li { padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .lista li:last-child { border-bottom: 0; }
+    .lista li.activo { background: var(--sel); }
+    .lista .de { font-size: .85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lista .asunto { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .badge { font-size: .75rem; padding: 2px 8px; border-radius: 999px; font-weight: 600; background: var(--neutro-bg); color: var(--neutro); }
+    .b-venta { background: var(--venta-bg); color: var(--venta); }
+    .b-reclamo { background: var(--reclamo-bg); color: var(--reclamo); }
+    .b-soporte { background: var(--soporte-bg); color: var(--soporte); }
+    .b-humano { background: var(--warn-bg); color: var(--warn); }
+    .detalle { padding: 20px; min-height: 300px; }
+    .detalle h2 { font-size: 1.15rem; margin: 0 0 4px; }
+    .original { white-space: pre-wrap; background: var(--bg); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: .95rem; }
+    .msg { padding: 10px 14px; border-radius: 8px; margin: 10px 0; }
+    .msg.warn { background: var(--warn-bg); color: var(--warn); }
+    .msg.err { background: var(--reclamo-bg); color: var(--reclamo); }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; }
+    input, textarea { width: 100%; font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+    textarea { min-height: 220px; resize: vertical; }
+    button { font: inherit; border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; background: var(--accent); color: var(--accent-text); font-weight: 600; }
+    button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .muted { color: var(--muted); }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 24px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>Asistente de emails con IA</h1>
+      <p class="sub" id="negocio">Clasifica cada consulta y prepara un borrador de respuesta para revisar.</p>
+    </div>
+    <div class="actions" style="margin-top:0">
+      <button id="todo">Analizar toda la bandeja</button>
+      <button id="nuevo" class="secondary">Pegar un email</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card"><ul class="lista" id="lista"></ul></section>
+    <section class="card detalle" id="detalle"><p class="muted">Elegí un email de la bandeja.</p></section>
+  </div>
+
+  <footer>Proyecto demo · negocio y emails ficticios. Las respuestas nunca se envían solas: siempre las revisa una persona.</footer>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const NOMBRES = { consulta_venta: "Venta", pedido_estado: "Estado de pedido", soporte: "Soporte", reclamo: "Reclamo", mayorista: "Mayorista", spam: "Spam", otro: "Otro" };
+  const CLASE = { consulta_venta: "b-venta", mayorista: "b-venta", reclamo: "b-reclamo", soporte: "b-soporte", pedido_estado: "b-soporte" };
+
+  let emails = [], resultados = [], actual = -1;
+
+  fetch("/api/negocio").then((r) => r.json()).then((n) => {
+    $("negocio").textContent = `Negocio de ejemplo: ${n.nombre}, ${n.rubro}. Clasifica cada consulta y prepara un borrador para revisar.`;
+  });
+  fetch("/api/bandeja").then((r) => r.json()).then((b) => { emails = b; resultados = b.map(() => null); pintarLista(); });
+
+  function badges(a) {
+    if (!a) return "";
+    if (a.error) return `<span class="badge b-reclamo">Error</span>`;
+    return `<span class="badge ${CLASE[a.categoria] || ""}">${NOMBRES[a.categoria]}</span>`
+      + `<span class="badge">Urgencia ${a.urgencia}</span>`
+      + (a.requiere_humano ? `<span class="badge b-humano">Revisar</span>` : "");
+  }
+
+  function pintarLista() {
+    $("lista").innerHTML = emails.map((e, i) => `
+      <li class="${i === actual ? "activo" : ""}" data-i="${i}">
+        <div class="de">${esc(e.de)}</div>
+        <div class="asunto">${esc(e.asunto)}</div>
+        <div class="badges">${resultados[i] === "cargando" ? '<span class="muted"><span class="spinner"></span>Analizando…</span>' : badges(resultados[i])}</div>
+      </li>`).join("");
+    $("lista").querySelectorAll("li").forEach((li) => li.addEventListener("click", () => seleccionar(Number(li.dataset.i))));
+  }
+
+  async function analizar(i) {
+    resultados[i] = "cargando"; pintarLista(); if (i === actual) pintarDetalle();
+    try {
+      const res = await fetch("/api/analizar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(emails[i]) });
+      const data = await res.json();
+      resultados[i] = res.ok ? data.analisis : { error: data.error || "No se pudo analizar." };
+    } catch {
+      resultados[i] = { error: "No se pudo conectar con el servidor." };
+    }
+    pintarLista(); if (i === actual) pintarDetalle();
+  }
+
+  function seleccionar(i) {
+    actual = i; pintarLista(); pintarDetalle();
+    if (!resultados[i]) analizar(i);
+  }
+
+  function pintarDetalle() {
+    const e = emails[actual], a = resultados[actual];
+    let html = `<h2>${esc(e.asunto)}</h2><div class="muted">De: ${esc(e.de)}</div><div class="original">${esc(e.cuerpo)}</div>`;
+    if (a === "cargando" || !a) html += `<p class="muted"><span class="spinner"></span>Analizando el email…</p>`;
+    else if (a.error) html += `<div class="msg err">${esc(a.error)}</div><div class="actions"><button id="reintentar">Reintentar</button></div>`;
+    else {
+      html += `<div class="badges">${badges(a)}<span class="badge">Tono ${a.sentimiento}</span><span class="badge">Confianza ${Math.round(a.confianza * 100)}%</span></div>`;
+      html += `<p><strong>Resumen:</strong> ${esc(a.resumen)}</p>`;
+      const datos = [a.nombre_cliente && `Cliente: ${a.nombre_cliente}`, a.numero_pedido && `Pedido: ${a.numero_pedido}`].filter(Boolean);
+      if (datos.length) html += `<p class="muted">${esc(datos.join(" · "))}</p>`;
+      if (a.requiere_humano) html += `<div class="msg warn">⚠ Necesita revisión de una persona: ${esc(a.motivo_humano || "ver detalle")}</div>`;
+      if (a.categoria === "spam") html += `<p class="muted">Es spam: no se prepara respuesta.</p>`;
+      else html += `
+        <label for="asunto">Asunto de la respuesta</label><input id="asunto" value="${esc(a.borrador_asunto)}" />
+        <label for="borrador">Borrador (editable)</label><textarea id="borrador">${esc(a.borrador_respuesta)}</textarea>
+        <div class="actions"><button id="copiar">Copiar respuesta</button><button id="reintentar" class="secondary">Generar de nuevo</button></div>
+        <div id="copiado" class="muted"></div>`;
+    }
+    $("detalle").innerHTML = html;
+    $("reintentar")?.addEventListener("click", () => analizar(actual));
+    $("copiar")?.addEventListener("click", async () => {
+      const texto = `Asunto: ${$("asunto").value}\n\n${$("borrador").value}`;
+      try { await navigator.clipboard.writeText(texto); $("copiado").textContent = "Copiado al portapapeles."; }
+      catch { $("copiado").textContent = "No se pudo copiar: seleccioná el texto a mano."; }
+    });
+  }
+
+  $("todo").addEventListener("click", async () => {
+    const btn = $("todo"); btn.disabled = true;
+    for (let i = 0; i < emails.length; i++) if (!resultados[i] || resultados[i].error) await analizar(i);
+    btn.disabled = false;
+  });
+
+  $("nuevo").addEventListener("click", () => {
+    actual = -1; pintarLista();
+    $("detalle").innerHTML = `
+      <h2>Pegar un email</h2>
+      <label for="nDe">De</label><input id="nDe" placeholder="cliente@ejemplo.com" />
+      <label for="nAsunto">Asunto</label><input id="nAsunto" />
+      <label for="nCuerpo">Mensaje</label><textarea id="nCuerpo" placeholder="Pegá acá el texto del email"></textarea>
+      <div class="actions"><button id="agregar">Analizar</button></div>`;
+    $("agregar").addEventListener("click", () => {
+      const cuerpo = $("nCuerpo").value.trim();
+      if (!cuerpo) return;
+      emails.unshift({ de: $("nDe").value.trim() || "(sin remitente)", asunto: $("nAsunto").value.trim() || "(sin asunto)", cuerpo });
+      resultados.unshift(null);
+      seleccionar(0);
+    });
+  });
+</script>
+</body>
+</html>
